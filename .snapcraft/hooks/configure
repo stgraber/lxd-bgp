@@ -1,3 +1,14 @@
 #!/bin/sh -eu
+LOCAL_NETWORKS="$(snapctl get local.networks)"
+LOCAL_ROUTER_ID="$(snapctl get local.router-id)"
+LOCAL_ASN="$(snapctl get local.asn)"
+REMOTE_ASN="$(snapctl get remote.asn)"
+REMOTE_ADDRESS="$(snapctl get remote.address)"
+REMOTE_PASSWORD="$(snapctl get remote.password)"
+
+if [ -z "${LOCAL_ROUTER_ID}" ] || [ -z "${LOCAL_ASN}" ] || [ -z "${REMOTE_ASN}" ] || [ -z "${REMOTE_ADDRESS}" ]; then
+    exit 0
+fi
+
 snapctl restart lxd-bgp.daemon
 exit 0
