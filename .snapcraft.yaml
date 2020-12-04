@@ -1,0 +1,46 @@
+name: lxd-bgp
+base: core20
+version: git
+grade: stable
+summary: BGP server that exposes LXD routes
+description: |-
+ This is a tiny Go BGP server that exposes LXD external subnets over BGP.
+
+ To install:
+  - sudo snap install lxd
+  - sudo lxd init
+  - sudo snap install lxd-bgp
+  - sudo snap connect lxd-bgp:lxd lxd:lxd
+
+ Config options are:
+  - local.router-id (Your local BGP router ID)
+  - local.asn (Your local BGP ASN)
+  - local.networks (comma separated list of LXD uplink networks)
+  - remote.address (Remote router's IP address)
+  - remote.asn (Remote router's BGP ASN)
+  - remote.password (Optional remote router BGP password)
+
+confinement: strict
+
+apps:
+  daemon:
+    command: daemon.start
+    daemon: simple
+    plugs:
+      - lxd
+      - network
+      - network-bind
+
+hooks:
+  configure: {}
+
+parts:
+  lxd-bgp:
+    source: .
+    plugin: go
+
+  wrappers:
+    plugin: dump
+    source: .snapcraft/
+    organize:
+      hooks/: snap/hooks/
