@@ -25,12 +25,12 @@ import (
 )
 
 var (
-	confAsn          = uint32(0)
-	confPeerAddress  = ""
-	confPeerAsn      = uint32(0)
-	confPeerPassword = ""
-	confUplinks      = []string{}
-	confRouterID     = ""
+	confAsn           = uint32(0)
+	confPeerAddresses = []string{}
+	confPeerAsn       = uint32(0)
+	confPeerPassword  = ""
+	confUplinks       = []string{}
+	confRouterID      = ""
 
 	currentAdv = []advertisement{}
 	syncLock   = sync.Mutex{}
@@ -72,7 +72,7 @@ func run() error {
 		return err
 	}
 	confPeerAsn = uint32(val)
-	confPeerAddress = os.Args[5]
+	confPeerAddresses = strings.Split(os.Args[5], ",")
 	if len(os.Args) == 7 {
 		confPeerPassword = os.Args[6]
 	}
@@ -408,33 +408,35 @@ func runBgp() (*gobgp.BgpServer, error) {
 	}
 
 	// Neighbor configuration.
-	n := &gobgpapi.Peer{
-		Conf: &gobgpapi.PeerConf{
-			NeighborAddress: confPeerAddress,
-			PeerAs:          confPeerAsn,
-			AuthPassword:    confPeerPassword,
-		},
-	}
+	for _, confPeerAddress := range confPeerAddresses {
+		n := &gobgpapi.Peer{
+			Conf: &gobgpapi.PeerConf{
+				NeighborAddress: confPeerAddress,
+				PeerAs:          confPeerAsn,
+				AuthPassword:    confPeerPassword,
+			},
+		}
 
-	n.AfiSafis = make([]*gobgpapi.AfiSafi, 0)
-	for _, f := range []string{"ipv4-unicast", "ipv6-unicast"} {
-		rf, err := bgp.GetRouteFamily(f)
+		n.AfiSafis = make([]*gobgpapi.AfiSafi, 0)
+		for _, f := range []string{"ipv4-unicast", "ipv6-unicast"} {
+			rf, err := bgp.GetRouteFamily(f)
+			if err != nil {
+				return nil, err
+			}
+
+			afi, safi := bgp.RouteFamilyToAfiSafi(rf)
+			family := &gobgpapi.Family{
+				Afi:  gobgpapi.Family_Afi(afi),
+				Safi: gobgpapi.Family_Safi(safi),
+			}
+
+			n.AfiSafis = append(n.AfiSafis, &gobgpapi.AfiSafi{Config: &gobgpapi.AfiSafiConfig{Family: family}})
+		}
+
+		err = s.AddPeer(context.Background(), &gobgpapi.AddPeerRequest{Peer: n})
 		if err != nil {
 			return nil, err
 		}
-
-		afi, safi := bgp.RouteFamilyToAfiSafi(rf)
-		family := &gobgpapi.Family{
-			Afi:  gobgpapi.Family_Afi(afi),
-			Safi: gobgpapi.Family_Safi(safi),
-		}
-
-		n.AfiSafis = append(n.AfiSafis, &gobgpapi.AfiSafi{Config: &gobgpapi.AfiSafiConfig{Family: family}})
-	}
-
-	err = s.AddPeer(context.Background(), &gobgpapi.AddPeerRequest{Peer: n})
-	if err != nil {
-		return nil, err
 	}
 
 	return s, nil
