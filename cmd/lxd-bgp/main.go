@@ -223,23 +223,31 @@ func updatePrefixes(s *gobgp.BgpServer, c lxd.InstanceServer) error {
 							}
 
 							if dev["ipv4.routes.external"] != "" {
-								_, ipnet, err := net.ParseCIDR(dev["ipv4.routes.external"])
-								if err != nil {
-									fmt.Printf("WARN: skipping %q: %v\n", instance, err)
-									continue
-								}
+								for _, prefix := range strings.Split(dev["ipv4.routes.external"], ",") {
+									prefix = strings.TrimSpace(prefix)
 
-								newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV4), prefix: *ipnet})
+									_, ipnet, err := net.ParseCIDR(prefix)
+									if err != nil {
+										fmt.Printf("WARN: skipping %q: %v\n", instance, err)
+										continue
+									}
+
+									newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV4), prefix: *ipnet})
+								}
 							}
 
 							if dev["ipv6.routes.external"] != "" {
-								_, ipnet, err := net.ParseCIDR(dev["ipv6.routes.external"])
-								if err != nil {
-									fmt.Printf("WARN: skipping %q: %v\n", instance, err)
-									continue
-								}
+								for _, prefix := range strings.Split(dev["ipv6.routes.external"], ",") {
+									prefix = strings.TrimSpace(prefix)
 
-								newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV6), prefix: *ipnet})
+									_, ipnet, err := net.ParseCIDR(prefix)
+									if err != nil {
+										fmt.Printf("WARN: skipping %q: %v\n", instance, err)
+										continue
+									}
+
+									newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV6), prefix: *ipnet})
+								}
 							}
 						}
 					}
