@@ -162,93 +162,148 @@ func updatePrefixes(s *gobgp.BgpServer, c lxd.InstanceServer) error {
 			continue
 		}
 
-		// Iterate on downstream networks.
-		nEntries := parseUsedBy(u.UsedBy, "networks")
-		for nProject, networks := range nEntries {
-			for _, network := range networks {
-				n, _, err := c.UseProject(nProject).GetNetwork(network)
-				if err != nil {
-					fmt.Printf("WARN: skipping %q: %v\n", network, err)
-					continue
-				}
-
-				// Check if IPv4 subnet should be exported.
-				ovnV4 := n.Config["volatile.network.ipv4.address"]
-				if !shared.IsTrue(n.Config["ipv4.nat"]) && n.Config["ipv4.address"] != "" && n.Config["ipv4.address"] != "none" {
-					_, ipnet, err := net.ParseCIDR(n.Config["ipv4.address"])
+		if u.Managed {
+			// Iterate on downstream networks.
+			nEntries := parseUsedBy(u.UsedBy, "networks")
+			for nProject, networks := range nEntries {
+				for _, network := range networks {
+					n, _, err := c.UseProject(nProject).GetNetwork(network)
 					if err != nil {
 						fmt.Printf("WARN: skipping %q: %v\n", network, err)
 						continue
 					}
 
-					newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV4), prefix: *ipnet})
-				}
-
-				// Check if IPv6 subnet should be exported.
-				ovnV6 := n.Config["volatile.network.ipv6.address"]
-				if !shared.IsTrue(n.Config["ipv6.nat"]) && n.Config["ipv6.address"] != "" && n.Config["ipv6.address"] != "none" {
-					_, ipnet, err := net.ParseCIDR(n.Config["ipv6.address"])
-					if err != nil {
-						fmt.Printf("WARN: skipping %q: %v\n", network, err)
-						continue
-					}
-
-					newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV6), prefix: *ipnet})
-				}
-
-				// Get instances on the network.
-				iEntries := parseUsedBy(n.UsedBy, "instances")
-				for iProject, instances := range iEntries {
-					for _, instance := range instances {
-						i, _, err := c.UseProject(iProject).GetInstance(instance)
+					// Check if IPv4 subnet should be exported.
+					ovnV4 := n.Config["volatile.network.ipv4.address"]
+					if !shared.IsTrue(n.Config["ipv4.nat"]) && n.Config["ipv4.address"] != "" && n.Config["ipv4.address"] != "none" {
+						_, ipnet, err := net.ParseCIDR(n.Config["ipv4.address"])
 						if err != nil {
-							fmt.Printf("WARN: skipping %q: %v\n", instance, err)
+							fmt.Printf("WARN: skipping %q: %v\n", network, err)
 							continue
 						}
 
-						// Only announce our local instances.
-						if i.Location != hostname {
+						newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV4), prefix: *ipnet})
+					}
+
+					// Check if IPv6 subnet should be exported.
+					ovnV6 := n.Config["volatile.network.ipv6.address"]
+					if !shared.IsTrue(n.Config["ipv6.nat"]) && n.Config["ipv6.address"] != "" && n.Config["ipv6.address"] != "none" {
+						_, ipnet, err := net.ParseCIDR(n.Config["ipv6.address"])
+						if err != nil {
+							fmt.Printf("WARN: skipping %q: %v\n", network, err)
 							continue
 						}
 
-						// Skip any instance that's not running.
-						if i.StatusCode != lxdapi.Running {
-							continue
-						}
+						newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV6), prefix: *ipnet})
+					}
 
-						// Look for any device with external routes we should announce.
-						for _, dev := range i.ExpandedDevices {
-							if dev["type"] != "nic" || dev["network"] != network {
+					// Get instances on the network.
+					iEntries := parseUsedBy(n.UsedBy, "instances")
+					for iProject, instances := range iEntries {
+						for _, instance := range instances {
+							i, _, err := c.UseProject(iProject).GetInstance(instance)
+							if err != nil {
+								fmt.Printf("WARN: skipping %q: %v\n", instance, err)
 								continue
 							}
 
-							if dev["ipv4.routes.external"] != "" {
-								for _, prefix := range strings.Split(dev["ipv4.routes.external"], ",") {
-									prefix = strings.TrimSpace(prefix)
-
-									_, ipnet, err := net.ParseCIDR(prefix)
-									if err != nil {
-										fmt.Printf("WARN: skipping %q: %v\n", instance, err)
-										continue
-									}
-
-									newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV4), prefix: *ipnet})
-								}
+							// Only announce our local instances.
+							if i.Location != hostname {
+								continue
 							}
 
-							if dev["ipv6.routes.external"] != "" {
-								for _, prefix := range strings.Split(dev["ipv6.routes.external"], ",") {
-									prefix = strings.TrimSpace(prefix)
+							// Skip any instance that's not running.
+							if i.StatusCode != lxdapi.Running {
+								continue
+							}
 
-									_, ipnet, err := net.ParseCIDR(prefix)
-									if err != nil {
-										fmt.Printf("WARN: skipping %q: %v\n", instance, err)
-										continue
+							// Look for any device with external routes we should announce.
+							for _, dev := range i.ExpandedDevices {
+								if dev["type"] != "nic" || dev["network"] != network {
+									continue
+								}
+
+								if dev["ipv4.routes.external"] != "" {
+									for _, prefix := range strings.Split(dev["ipv4.routes.external"], ",") {
+										prefix = strings.TrimSpace(prefix)
+
+										_, ipnet, err := net.ParseCIDR(prefix)
+										if err != nil {
+											fmt.Printf("WARN: skipping %q: %v\n", instance, err)
+											continue
+										}
+
+										newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV4), prefix: *ipnet})
 									}
+								}
 
-									newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV6), prefix: *ipnet})
+								if dev["ipv6.routes.external"] != "" {
+									for _, prefix := range strings.Split(dev["ipv6.routes.external"], ",") {
+										prefix = strings.TrimSpace(prefix)
+
+										_, ipnet, err := net.ParseCIDR(prefix)
+										if err != nil {
+											fmt.Printf("WARN: skipping %q: %v\n", instance, err)
+											continue
+										}
+
+										newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(ovnV6), prefix: *ipnet})
+									}
 								}
 							}
+						}
+					}
+				}
+			}
+		} else {
+			// Go through all instances in all projects (slow path).
+			projects, err := c.GetProjectNames()
+			if err != nil {
+				return err
+			}
+
+			for _, proj := range projects {
+				// Go through the instances.
+				instances, err := c.UseProject(proj).GetInstances(lxdapi.InstanceTypeAny)
+				if err != nil {
+					return err
+				}
+
+				for _, i := range instances {
+					// Only announce our local instances.
+					if i.Location != hostname {
+						continue
+					}
+
+					// Skip any instance that's not running.
+					if i.StatusCode != lxdapi.Running {
+						continue
+					}
+
+					// Go through devices.
+					for _, d := range i.ExpandedDevices {
+						val, ok := d["user.bgp.routes"]
+						if !ok {
+							continue
+						}
+
+						prefixes := strings.Split(val, ",")
+
+						for _, prefix := range prefixes {
+							prefix = strings.TrimSpace(prefix)
+							fields := strings.Split(prefix, "_")
+							if len(fields) != 2 {
+								fmt.Printf("WARN: skipping %q: bad value\n", i.Name)
+								continue
+							}
+
+							_, ipnet, err := net.ParseCIDR(fields[0])
+							if err != nil {
+								fmt.Printf("WARN: skipping %q: %v\n", i.Name, err)
+								continue
+							}
+
+							newAdv = append(newAdv, advertisement{nexthop: net.ParseIP(fields[1]), prefix: *ipnet})
 						}
 					}
 				}
