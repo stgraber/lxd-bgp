@@ -134,8 +134,6 @@ func run() error {
 			continue
 		}
 	}
-
-	return nil
 }
 
 func updatePrefixes(s *gobgp.BgpServer, c lxd.InstanceServer) error {
