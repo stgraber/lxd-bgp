@@ -68,7 +68,7 @@ func run() error {
 	confAsn = uint32(val)
 
 	confPeerAsn = []uint32{}
-	for _, entry := range strings.Split(os.Args[6], ",") {
+	for _, entry := range strings.Split(os.Args[4], ",") {
 		val, err = strconv.ParseUint(entry, 10, 32)
 		if err != nil {
 			return err
