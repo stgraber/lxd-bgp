@@ -27,7 +27,7 @@ import (
 var (
 	confAsn           = uint32(0)
 	confPeerAddresses = []string{}
-	confPeerAsn       = uint32(0)
+	confPeerAsn       = []uint32{}
 	confPeerPassword  = ""
 	confUplinks       = []string{}
 	confRouterID      = ""
@@ -67,14 +67,24 @@ func run() error {
 	}
 	confAsn = uint32(val)
 
-	val, err = strconv.ParseUint(os.Args[4], 10, 32)
-	if err != nil {
-		return err
+	confPeerAsn = []uint32{}
+	for _, entry := range strings.Split(os.Args[6], ",") {
+		val, err = strconv.ParseUint(entry, 10, 32)
+		if err != nil {
+			return err
+		}
+
+		confPeerAsn = append(confPeerAsn, uint32(val))
 	}
-	confPeerAsn = uint32(val)
+
 	confPeerAddresses = strings.Split(os.Args[5], ",")
 	if len(os.Args) == 7 {
 		confPeerPassword = os.Args[6]
+	}
+
+	// Validation.
+	if len(confPeerAsn) > 1 && len(confPeerAsn) != len(confPeerAddresses) {
+		return fmt.Errorf("ASN and addresses list length don't match")
 	}
 
 	// Start BGP.
@@ -469,11 +479,16 @@ func runBgp() (*gobgp.BgpServer, error) {
 	}
 
 	// Neighbor configuration.
-	for _, confPeerAddress := range confPeerAddresses {
+	for i, confPeerAddress := range confPeerAddresses {
+		asn := confPeerAsn[0]
+		if len(confPeerAsn) > 1 {
+			asn = confPeerAsn[i]
+		}
+
 		n := &gobgpapi.Peer{
 			Conf: &gobgpapi.PeerConf{
 				NeighborAddress: confPeerAddress,
-				PeerAs:          confPeerAsn,
+				PeerAs:          asn,
 				AuthPassword:    confPeerPassword,
 			},
 		}
