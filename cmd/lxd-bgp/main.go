@@ -491,6 +491,10 @@ func runBgp() (*gobgp.BgpServer, error) {
 				PeerAs:          asn,
 				AuthPassword:    confPeerPassword,
 			},
+			GracefulRestart: &gobgpapi.GracefulRestart{
+				Enabled:     true,
+				RestartTime: 120,
+			},
 		}
 
 		n.AfiSafis = make([]*gobgpapi.AfiSafi, 0)
@@ -506,7 +510,14 @@ func runBgp() (*gobgp.BgpServer, error) {
 				Safi: gobgpapi.Family_Safi(safi),
 			}
 
-			n.AfiSafis = append(n.AfiSafis, &gobgpapi.AfiSafi{Config: &gobgpapi.AfiSafiConfig{Family: family}})
+			n.AfiSafis = append(n.AfiSafis, &gobgpapi.AfiSafi{
+				MpGracefulRestart: &gobgpapi.MpGracefulRestart{
+					Config: &gobgpapi.MpGracefulRestartConfig{
+						Enabled: true,
+					},
+				},
+				Config: &gobgpapi.AfiSafiConfig{Family: family},
+			})
 		}
 
 		err = s.AddPeer(context.Background(), &gobgpapi.AddPeerRequest{Peer: n})
