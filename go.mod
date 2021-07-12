@@ -11,7 +11,7 @@ require (
 	github.com/juju/webbrowser v1.0.0 // indirect
 	github.com/k-sone/critbitgo v1.4.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
-	github.com/lxc/lxd v0.0.0-20210708005830-b69b7cd045b6
+	github.com/lxc/lxd v0.0.0-20210711233542-5b56ed408255
 	github.com/osrg/gobgp v0.0.0-20201202003019-b5913a29e4c5
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -19,10 +19,10 @@ require (
 	github.com/spf13/viper v1.8.1 // indirect
 	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
-	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e // indirect
+	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
-	google.golang.org/genproto v0.0.0-20210707164411-8c882eb9abba // indirect
+	google.golang.org/genproto v0.0.0-20210712171009-5404628d0f46 // indirect
 	gopkg.in/httprequest.v1 v1.2.1 // indirect
 	gopkg.in/macaroon-bakery.v2 v2.3.0 // indirect
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
