@@ -216,7 +216,7 @@ func updatePrefixes(s *gobgp.BgpServer, c lxd.InstanceServer) error {
 							}
 
 							// Only announce our local instances.
-							if i.Location != hostname {
+							if i.Location != "none" && i.Location != hostname {
 								continue
 							}
 
@@ -279,7 +279,7 @@ func updatePrefixes(s *gobgp.BgpServer, c lxd.InstanceServer) error {
 
 				for _, i := range instances {
 					// Only announce our local instances.
-					if i.Location != hostname {
+					if i.Location != "none" && i.Location != hostname {
 						continue
 					}
 
