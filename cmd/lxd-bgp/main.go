@@ -491,6 +491,10 @@ func runBgp() (*gobgp.BgpServer, error) {
 				PeerAs:          asn,
 				AuthPassword:    confPeerPassword,
 			},
+			EbgpMultihop: &gobgpapi.EbgpMultihop{
+				Enabled:     true,
+				MultihopTtl: 4,
+			},
 			GracefulRestart: &gobgpapi.GracefulRestart{
 				Enabled:     true,
 				RestartTime: 120,
