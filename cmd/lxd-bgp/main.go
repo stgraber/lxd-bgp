@@ -105,7 +105,7 @@ func run() error {
 		fmt.Printf("INFO: Connected to LXD\n")
 
 		// Setup event listener for all projects.
-		ev, err := c.UseProject("*").GetEvents()
+		ev, err := c.GetEventsAllProjects()
 		if err != nil {
 			fmt.Printf("WARN: Failed to access LXD event API\n")
 			return err
