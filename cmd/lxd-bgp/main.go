@@ -28,6 +28,7 @@ var (
 	confPeerAddresses = []string{}
 	confPeerAsn       = []uint32{}
 	confPeerPassword  = ""
+	confProjects      = []string{}
 	confUplinks       = []string{}
 	confRouterID      = ""
 
@@ -54,20 +55,21 @@ func main() {
 func run() error {
 	// Argument parsing.
 	if len(os.Args) < 6 {
-		return fmt.Errorf("Usage: %s <uplinks> <router-id> <local ASN> <peer ASN> <peer IP> [peer password]", os.Args[0])
+		return fmt.Errorf("Usage: %s <projects> <uplinks> <router-id> <local ASN> <peer ASN> <peer IP> [peer password]", os.Args[0])
 	}
 
-	confUplinks = strings.Split(os.Args[1], ",")
-	confRouterID = os.Args[2]
+	confProjects = strings.Split(os.Args[1], ",")
+	confUplinks = strings.Split(os.Args[2], ",")
+	confRouterID = os.Args[3]
 
-	val, err := strconv.ParseUint(os.Args[3], 10, 32)
+	val, err := strconv.ParseUint(os.Args[4], 10, 32)
 	if err != nil {
 		return err
 	}
 	confAsn = uint32(val)
 
 	confPeerAsn = []uint32{}
-	for _, entry := range strings.Split(os.Args[4], ",") {
+	for _, entry := range strings.Split(os.Args[5], ",") {
 		val, err = strconv.ParseUint(entry, 10, 32)
 		if err != nil {
 			return err
@@ -76,9 +78,9 @@ func run() error {
 		confPeerAsn = append(confPeerAsn, uint32(val))
 	}
 
-	confPeerAddresses = strings.Split(os.Args[5], ",")
-	if len(os.Args) == 7 {
-		confPeerPassword = os.Args[6]
+	confPeerAddresses = strings.Split(os.Args[6], ",")
+	if len(os.Args) == 8 {
+		confPeerPassword = os.Args[7]
 	}
 
 	// Validation.
@@ -115,6 +117,10 @@ func run() error {
 			err = json.Unmarshal(ev.Metadata, &event)
 			if err != nil {
 				fmt.Printf("WARN: Error unpacking event: %v\n", err)
+				return
+			}
+
+			if len(confProjects) > 0 && !shared.StringInSlice(ev.Project, confProjects) {
 				return
 			}
 
@@ -264,9 +270,12 @@ func updatePrefixes(s *bgpServer.BgpServer, c lxd.InstanceServer) error {
 			}
 		} else {
 			// Go through all instances in all projects (slow path).
-			projects, err := c.GetProjectNames()
-			if err != nil {
-				return err
+			projects := confProjects
+			if len(confProjects) == 0 {
+				projects, err = c.GetProjectNames()
+				if err != nil {
+					return err
+				}
 			}
 
 			for _, proj := range projects {
