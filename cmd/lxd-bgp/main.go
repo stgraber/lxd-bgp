@@ -12,12 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/types/known/anypb"
 
-	"github.com/osrg/gobgp/api"
-	"github.com/osrg/gobgp/pkg/packet/bgp"
-	gobgp "github.com/osrg/gobgp/pkg/server"
+	bgpAPI "github.com/osrg/gobgp/v3/api"
+	bgpPacket "github.com/osrg/gobgp/v3/pkg/packet/bgp"
+	bgpServer "github.com/osrg/gobgp/v3/pkg/server"
 
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
@@ -146,7 +145,7 @@ func run() error {
 	}
 }
 
-func updatePrefixes(s *gobgp.BgpServer, c lxd.InstanceServer) error {
+func updatePrefixes(s *bgpServer.BgpServer, c lxd.InstanceServer) error {
 	// Locking.
 	syncLock.Lock()
 	defer syncLock.Unlock()
@@ -331,7 +330,7 @@ func updatePrefixes(s *gobgp.BgpServer, c lxd.InstanceServer) error {
 		}
 
 		if !found {
-			err := s.DeletePath(context.Background(), &gobgpapi.DeletePathRequest{Uuid: prev.uuid})
+			err := s.DeletePath(context.Background(), &bgpAPI.DeletePathRequest{Uuid: prev.uuid})
 			if err != nil {
 				fmt.Printf("WARN: Couldn't drop %q via %q: %v\n", prev.prefix.String(), prev.nexthop.String(), err)
 				continue
@@ -401,30 +400,30 @@ func parseUsedBy(entries []string, entryType string) map[string][]string {
 	return out
 }
 
-func addRoute(s *gobgp.BgpServer, subnet net.IPNet, nexthop net.IP) ([]byte, error) {
+func addRoute(s *bgpServer.BgpServer, subnet net.IPNet, nexthop net.IP) ([]byte, error) {
 	prefixLen, _ := subnet.Mask.Size()
 	prefix := subnet.IP.String()
 
-	nlri, _ := ptypes.MarshalAny(&gobgpapi.IPAddressPrefix{
+	nlri, _ := anypb.New(&bgpAPI.IPAddressPrefix{
 		Prefix:    prefix,
 		PrefixLen: uint32(prefixLen),
 	})
 
-	aOrigin, _ := ptypes.MarshalAny(&gobgpapi.OriginAttribute{
+	aOrigin, _ := anypb.New(&bgpAPI.OriginAttribute{
 		Origin: 0,
 	})
 
 	var uuid []byte
 	if subnet.IP.To4() != nil {
-		aNextHop, _ := ptypes.MarshalAny(&gobgpapi.NextHopAttribute{
+		aNextHop, _ := anypb.New(&bgpAPI.NextHopAttribute{
 			NextHop: nexthop.String(),
 		})
 
-		resp, err := s.AddPath(context.Background(), &gobgpapi.AddPathRequest{
-			Path: &gobgpapi.Path{
-				Family: &gobgpapi.Family{Afi: gobgpapi.Family_AFI_IP, Safi: gobgpapi.Family_SAFI_UNICAST},
+		resp, err := s.AddPath(context.Background(), &bgpAPI.AddPathRequest{
+			Path: &bgpAPI.Path{
+				Family: &bgpAPI.Family{Afi: bgpAPI.Family_AFI_IP, Safi: bgpAPI.Family_SAFI_UNICAST},
 				Nlri:   nlri,
-				Pattrs: []*any.Any{aOrigin, aNextHop},
+				Pattrs: []*anypb.Any{aOrigin, aNextHop},
 			},
 		})
 		if err != nil {
@@ -433,22 +432,22 @@ func addRoute(s *gobgp.BgpServer, subnet net.IPNet, nexthop net.IP) ([]byte, err
 
 		uuid = resp.Uuid
 	} else {
-		family := &gobgpapi.Family{
-			Afi:  gobgpapi.Family_AFI_IP6,
-			Safi: gobgpapi.Family_SAFI_UNICAST,
+		family := &bgpAPI.Family{
+			Afi:  bgpAPI.Family_AFI_IP6,
+			Safi: bgpAPI.Family_SAFI_UNICAST,
 		}
 
-		v6Attrs, _ := ptypes.MarshalAny(&gobgpapi.MpReachNLRIAttribute{
+		v6Attrs, _ := anypb.New(&bgpAPI.MpReachNLRIAttribute{
 			Family:   family,
 			NextHops: []string{nexthop.String()},
-			Nlris:    []*any.Any{nlri},
+			Nlris:    []*anypb.Any{nlri},
 		})
 
-		resp, err := s.AddPath(context.Background(), &gobgpapi.AddPathRequest{
-			Path: &gobgpapi.Path{
+		resp, err := s.AddPath(context.Background(), &bgpAPI.AddPathRequest{
+			Path: &bgpAPI.Path{
 				Family: family,
 				Nlri:   nlri,
-				Pattrs: []*any.Any{aOrigin, v6Attrs},
+				Pattrs: []*anypb.Any{aOrigin, v6Attrs},
 			},
 		})
 		if err != nil {
@@ -461,19 +460,19 @@ func addRoute(s *gobgp.BgpServer, subnet net.IPNet, nexthop net.IP) ([]byte, err
 	return uuid, nil
 }
 
-func runBgp() (*gobgp.BgpServer, error) {
+func runBgp() (*bgpServer.BgpServer, error) {
 	// Start the server.
-	s := gobgp.NewBgpServer()
+	s := bgpServer.NewBgpServer()
 	go s.Serve()
 
 	// Main configuration.
-	conf := &gobgpapi.Global{
+	conf := &bgpAPI.Global{
 		RouterId: confRouterID,
-		As:       confAsn,
+		Asn:      confAsn,
 		Families: []uint32{0, 1},
 	}
 
-	err := s.StartBgp(context.Background(), &gobgpapi.StartBgpRequest{Global: conf})
+	err := s.StartBgp(context.Background(), &bgpAPI.StartBgpRequest{Global: conf})
 	if err != nil {
 		return nil, err
 	}
@@ -485,46 +484,46 @@ func runBgp() (*gobgp.BgpServer, error) {
 			asn = confPeerAsn[i]
 		}
 
-		n := &gobgpapi.Peer{
-			Conf: &gobgpapi.PeerConf{
+		n := &bgpAPI.Peer{
+			Conf: &bgpAPI.PeerConf{
 				NeighborAddress: confPeerAddress,
-				PeerAs:          asn,
+				PeerAsn:         asn,
 				AuthPassword:    confPeerPassword,
 			},
-			EbgpMultihop: &gobgpapi.EbgpMultihop{
+			EbgpMultihop: &bgpAPI.EbgpMultihop{
 				Enabled:     true,
 				MultihopTtl: 4,
 			},
-			GracefulRestart: &gobgpapi.GracefulRestart{
+			GracefulRestart: &bgpAPI.GracefulRestart{
 				Enabled:     true,
 				RestartTime: 120,
 			},
 		}
 
-		n.AfiSafis = make([]*gobgpapi.AfiSafi, 0)
+		n.AfiSafis = make([]*bgpAPI.AfiSafi, 0)
 		for _, f := range []string{"ipv4-unicast", "ipv6-unicast"} {
-			rf, err := bgp.GetRouteFamily(f)
+			rf, err := bgpPacket.GetRouteFamily(f)
 			if err != nil {
 				return nil, err
 			}
 
-			afi, safi := bgp.RouteFamilyToAfiSafi(rf)
-			family := &gobgpapi.Family{
-				Afi:  gobgpapi.Family_Afi(afi),
-				Safi: gobgpapi.Family_Safi(safi),
+			afi, safi := bgpPacket.RouteFamilyToAfiSafi(rf)
+			family := &bgpAPI.Family{
+				Afi:  bgpAPI.Family_Afi(afi),
+				Safi: bgpAPI.Family_Safi(safi),
 			}
 
-			n.AfiSafis = append(n.AfiSafis, &gobgpapi.AfiSafi{
-				MpGracefulRestart: &gobgpapi.MpGracefulRestart{
-					Config: &gobgpapi.MpGracefulRestartConfig{
+			n.AfiSafis = append(n.AfiSafis, &bgpAPI.AfiSafi{
+				MpGracefulRestart: &bgpAPI.MpGracefulRestart{
+					Config: &bgpAPI.MpGracefulRestartConfig{
 						Enabled: true,
 					},
 				},
-				Config: &gobgpapi.AfiSafiConfig{Family: family},
+				Config: &bgpAPI.AfiSafiConfig{Family: family},
 			})
 		}
 
-		err = s.AddPeer(context.Background(), &gobgpapi.AddPeerRequest{Peer: n})
+		err = s.AddPeer(context.Background(), &bgpAPI.AddPeerRequest{Peer: n})
 		if err != nil {
 			return nil, err
 		}
