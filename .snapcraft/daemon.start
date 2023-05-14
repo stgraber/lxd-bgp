@@ -1,4 +1,5 @@
 #!/bin/sh -eu
+PROJECTS="$(snapctl get projects)"
 LOCAL_NETWORKS="$(snapctl get local.networks)"
 LOCAL_ROUTER_ID="$(snapctl get local.router-id)"
 LOCAL_ASN="$(snapctl get local.asn)"
@@ -11,4 +12,4 @@ if [ -z "${LOCAL_ROUTER_ID}" ] || [ -z "${LOCAL_ASN}" ] || [ -z "${REMOTE_ASN}" 
     snapctl stop lxd-bgp.daemon
 fi
 
-exec lxd-bgp "${LOCAL_NETWORKS}" "${LOCAL_ROUTER_ID}" "${LOCAL_ASN}" "${REMOTE_ASN}" "${REMOTE_ADDRESS}" "${REMOTE_PASSWORD}"
+exec lxd-bgp "${PROJECTS}" "${LOCAL_NETWORKS}" "${LOCAL_ROUTER_ID}" "${LOCAL_ASN}" "${REMOTE_ASN}" "${REMOTE_ADDRESS}" "${REMOTE_PASSWORD}"

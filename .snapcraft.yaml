@@ -1,5 +1,5 @@
 name: lxd-bgp
-base: core20
+base: core22
 version: git
 grade: stable
 summary: BGP server that exposes LXD routes
@@ -44,6 +44,8 @@ hooks:
 parts:
   lxd-bgp:
     source: .
+    build-snaps:
+      - go
     plugin: go
 
   wrappers:
